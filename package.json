@@ -4,6 +4,26 @@
   "private": true,
   "description": "Privacy-first speed-limit awareness for UAE roads.",
   "license": "Apache-2.0",
+  "author": "Juber Shaikh and contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodeWithJuber/roadlimit-uae.git"
+  },
+  "homepage": "https://github.com/CodeWithJuber/roadlimit-uae#readme",
+  "bugs": {
+    "url": "https://github.com/CodeWithJuber/roadlimit-uae/issues"
+  },
+  "keywords": [
+    "expo",
+    "react-native",
+    "android",
+    "ios",
+    "road-safety",
+    "speed-awareness",
+    "uae",
+    "dubai",
+    "privacy"
+  ],
   "main": "index.ts",
   "scripts": {
     "start": "expo start --dev-client",
@@ -14,9 +34,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "doctor": "expo-doctor",
+    "repo:check": "node tools/check-repository.mjs",
     "check:data": "vitest run src/data/__tests__/dubaiRoads.test.ts",
     "data:import": "node tools/import-dubai-csv.mjs",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test && npm run repo:check"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
