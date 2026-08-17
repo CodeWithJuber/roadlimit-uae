@@ -1,0 +1,36 @@
+name: Usage question
+description: Ask about setup or research-beta behaviour without sharing private trip data.
+title: "[Question]: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: RoadLimit UAE is not legal advice, an emergency service, or a guarantee against fines. Remove coordinates, addresses, plates, faces, tokens, and trip traces.
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      options: [Installation, Android, iOS, Permissions, Alerts, Road-data workflow, Other]
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: App version/commit, device, OS, and development or release build.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Include redacted context and what documentation you already checked.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and privacy
+      options:
+        - label: I removed precise location, trip, credential, and identifying information.
+          required: true
+        - label: I will reproduce only while parked, as a passenger, or in simulation.
+          required: true
