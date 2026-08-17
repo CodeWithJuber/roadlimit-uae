@@ -3,3 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/CodeWithJuber/roadlimit-uae/security/advisories/new
     about: Report location, token, or alert-safety vulnerabilities privately.
+  - name: Support policy
+    url: https://github.com/CodeWithJuber/roadlimit-uae/blob/main/SUPPORT.md
+    about: Check safety boundaries and the information needed before opening a question.
