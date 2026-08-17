@@ -1,0 +1,25 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Safety and reliability
+      labels:
+        - safety
+        - security
+    - title: Road data
+      labels:
+        - data
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation and maintenance
+      labels:
+        - documentation
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"

@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use RoadLimit UAE in research or software, please cite this repository."
+title: "RoadLimit UAE"
+type: software
+version: 0.1.0
+license: Apache-2.0
+repository-code: "https://github.com/CodeWithJuber/roadlimit-uae"
+url: "https://github.com/CodeWithJuber/roadlimit-uae"
+abstract: >-
+  A privacy-first, deterministic research beta for manually confirmed
+  speed-limit awareness on Android and iOS, initially focused on Dubai.
+authors:
+  - family-names: Shaikh
+    given-names: Juber
+    alias: CodeWithJuber
