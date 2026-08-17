@@ -4,7 +4,7 @@ The Apache-2.0 licence applies to source code, not automatically to third-party 
 
 The repository contains a tiny demonstration catalog with factual values and links to the Dubai Police source. It is not a complete or production-grade database and carries no claim of official endorsement, timeless accuracy, or redistribution rights over the source database.
 
-The Dubai Pulse metadata page describes its speed/radar dataset as open data but currently lists the licence as unspecified. Do not import and commit the full dataset until the applicable licence or written permission has been verified and recorded.
+The Dubai Pulse metadata page described its speed/radar dataset as open data but listed the licence as unspecified when checked on 2026-08-17. The observation and re-verification requirements are recorded in [docs/data/SOURCE_AUDIT.md](docs/data/SOURCE_AUDIT.md). Do not import and commit the full dataset until the applicable licence or written permission has been verified and recorded.
 
 The local CSV importer is a review tool, not a licence detector. It requires an HTTPS source URL and a non-placeholder licence identifier or written-permission reference, writes only beneath the git-ignored `local-data/` directory, and records a SHA-256 checksum of the exact input bytes. Generated artifacts remain `redistributionApproved: false`. A source URL, asserted licence, or checksum is provenance evidence—not proof that the asserted terms apply or that redistribution is permitted.
 
