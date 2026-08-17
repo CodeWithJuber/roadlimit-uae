@@ -13,7 +13,7 @@ Use this template for development and signed release builds. Never test while op
 
 ## Device matrix
 
-| Device | OS | Build | Foreground | Locked | Background | Result / evidence |
+| Device | OS | Build | Foreground | Lock/leave behaviour | iOS background | Result / evidence |
 |---|---|---|---|---|---|---|
 | Pixel | | | | | | |
 | Samsung Galaxy | | | | | | |
@@ -25,11 +25,12 @@ Use this template for development and signed release builds. Never test while op
 - Fresh install and incremental permission requests
 - Precise location denied, reduced, revoked, and restored
 - Notifications denied, channel downgraded/blocked, and restored
-- App foregrounded, backgrounded, and screen locked
+- Android remains awake while visible and fails closed when Home/lock is used
+- iOS foregrounded, backgrounded, and screen locked
 - GPS speed null, stale, inaccurate, negative, and implausibly high
 - Normal acceleration/deceleration around approaching and over-limit thresholds
 - Alert cooldown, hysteresis, and stop/restart session isolation
-- Battery saver and OEM background restrictions
+- Battery saver and OEM foreground/screen-awake restrictions
 - No network / airplane mode with GPS still available
 - iPhone silent mode, Focus, calls, and Bluetooth audio
 - Android force-stop, recents dismissal, and reboot

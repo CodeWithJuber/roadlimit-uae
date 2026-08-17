@@ -58,7 +58,7 @@ export const buildSessionResolution = (
       roadName: 'Manually confirmed limit',
       confidence: 'high',
       provider: 'manual',
-      advisory: 'Static session value. Follow any changed or temporary sign and reconfirm while parked.',
+      advisory: 'Static session value. Follow posted and temporary signs and authority instructions; stop and reconfirm while parked.',
       observedAt: confirmedAt,
     };
   }
@@ -80,7 +80,7 @@ export const buildSessionResolution = (
       roadName: road.canonicalName,
       confidence: 'high',
       provider: 'catalog',
-      advisory: 'Static session value from a road reference. Physical and temporary signs always override it.',
+      advisory: 'Static road-name reference. Follow posted and temporary signs and authority instructions; stop and reconfirm while parked.',
       observedAt: confirmedAt,
     };
   }

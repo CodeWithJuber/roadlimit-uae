@@ -3,7 +3,7 @@
     "name": "RoadLimit UAE",
     "slug": "roadlimit-uae",
     "scheme": "roadlimituae",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.codewithjuber.roadlimituae",
+      "versionCode": 2,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -36,13 +37,13 @@
           "motionUsagePermission": false,
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": false,
-          "isAndroidForegroundServiceEnabled": true
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#1FD18A",
+          "color": "#F26430",
           "defaultChannel": "drive-alerts",
           "enableBackgroundRemoteNotifications": false
         }

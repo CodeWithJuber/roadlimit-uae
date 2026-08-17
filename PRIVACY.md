@@ -10,11 +10,11 @@ RoadLimit UAE is designed to work without an account, advertising ID, analytics 
 - A minimal rolling buffer containing speed, accuracy, and timestamp may be stored on-device during a session so median smoothing still works in background task launches.
 - That speed buffer is cleared when the drive stops and during next-launch recovery after an interrupted session.
 - Android backups are disabled for this app. The app does not sell location data or track outside a user-started session.
-- Android shows a persistent foreground-service notification; iOS shows its background-location indicator.
+- The Android research beta keeps tracking in the visible app and holds a wake lock during the session; it does not start a background location service. Leaving or locking the app ends the session. iOS shows its background-location indicator when its separately gated background mode is enabled.
 
 ## Notifications
 
-Speed warnings are local notifications. Background mode is not started unless local-notification permission is available. On Android, the current research build marks its alert channel **private**, so content such as the measured speed and confirmed session limit is intended to be hidden on a secured lock screen. It may remain visible when the device is unlocked, and Android/OEM/user settings ultimately control presentation; verify this behaviour on every release device.
+Speed warnings are local notifications. iOS background mode is not started unless local-notification permission is available. On Android, notifications are an optional additional output for the screen-on session. The current research build marks its alert channel **private**, so content such as the measured speed and confirmed session limit is intended to be hidden on a secured lock screen. It may remain visible when the device is unlocked, and Android/OEM/user settings ultimately control presentation; verify this behaviour on every release device.
 
 ## Control and deletion
 

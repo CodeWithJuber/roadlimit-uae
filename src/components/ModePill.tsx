@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import type { DriveSnapshot } from '../domain/types';
 import { colors, radius } from '../theme';
@@ -6,35 +7,76 @@ import { colors, radius } from '../theme';
 type Props = { snapshot: DriveSnapshot };
 
 const copy = (snapshot: DriveSnapshot) => {
-  if (snapshot.status === 'error') return { label: 'NEEDS ATTENTION', color: colors.red };
-  if (!snapshot.active) return { label: 'READY', color: colors.blue };
-  if (snapshot.status === 'degraded') return { label: 'SIGNAL DEGRADED', color: colors.amber };
-  if (snapshot.status === 'starting') return { label: 'STARTING', color: colors.amber };
-  return { label: 'TRACKING', color: colors.green };
+  if (snapshot.status === 'error') {
+    return {
+      label: 'Needs attention',
+      color: colors.red,
+      icon: 'alert-circle-outline',
+    };
+  }
+  if (snapshot.status === 'degraded') {
+    return {
+      label: 'GPS degraded · alerts paused',
+      color: colors.amber,
+      icon: 'signal-off',
+    };
+  }
+  if (snapshot.status === 'starting') {
+    return {
+      label: 'Starting GPS',
+      color: colors.amber,
+      icon: 'crosshairs-gps',
+    };
+  }
+  if (snapshot.active) {
+    return {
+      label: Platform.OS === 'android' ? 'Tracking · screen on' : 'Tracking',
+      color: colors.cyan,
+      icon: 'navigation-variant',
+    };
+  }
+  return {
+    label: Platform.OS === 'android' ? 'Ready · screen on' : 'Ready to confirm',
+    color: colors.green,
+    icon: 'circle',
+  };
 };
 
 export const ModePill = ({ snapshot }: Props) => {
   const value = copy(snapshot);
   return (
-    <View style={styles.pill}>
-      <View style={[styles.dot, { backgroundColor: value.color }]} />
-      <Text style={styles.text}>{value.label}</Text>
+    <View
+      accessible
+      accessibilityLabel={`Drive status: ${value.label}`}
+      accessibilityLiveRegion="polite"
+      style={styles.pill}
+    >
+      <MaterialCommunityIcons name={value.icon as never} size={14} color={value.color} />
+      <Text style={[styles.text, { color: value.color }]}>{value.label}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   pill: {
+    minHeight: 36,
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 13,
     paddingVertical: 8,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
     backgroundColor: colors.surface,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  text: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  text: {
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    letterSpacing: 0.25,
+  },
 });
