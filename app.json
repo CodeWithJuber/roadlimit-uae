@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "RoadLimit UAE",
+    "slug": "roadlimit-uae",
+    "scheme": "roadlimituae",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.codewithjuber.roadlimituae",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationAlwaysUsageDescription": "RoadLimit UAE uses location in the background only during a driving session you start, so local speed alerts can continue while the screen is locked. It never auto-starts or uploads your route."
+      }
+    },
+    "android": {
+      "package": "com.codewithjuber.roadlimituae",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RoadLimit UAE uses your precise location during a driving session to read GPS speed and warn when it approaches the limit you confirmed. Processing stays on your device.",
+          "locationAlwaysAndWhenInUsePermission": "RoadLimit UAE uses location in the background only during a driving session you start, so alerts can continue while the screen is locked or another app is open. It does not track you outside an active session or upload your route.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1FD18A",
+          "defaultChannel": "drive-alerts",
+          "enableBackgroundRemoteNotifications": false
+        }
+      ],
+      "./plugins/with-minimal-permissions"
+    ]
+  }
+}

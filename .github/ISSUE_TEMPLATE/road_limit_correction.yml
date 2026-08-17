@@ -1,0 +1,58 @@
+name: Road-limit correction
+description: Propose a sourced correction collected safely while parked or as a passenger.
+title: "[Data]: "
+labels: [data, needs-verification]
+body:
+  - type: markdown
+    attributes:
+      value: Never collect evidence while driving. Remove faces, licence plates, personal addresses, coordinates near a home, and photo metadata.
+  - type: input
+    id: road
+    attributes:
+      label: Road, emirate, and direction
+      placeholder: Al Khail Road, Dubai, northbound
+    validations:
+      required: true
+  - type: textarea
+    id: segment
+    attributes:
+      label: Exact segment
+      description: Describe start/end junctions and carriageway. A road-wide name alone is insufficient.
+    validations:
+      required: true
+  - type: input
+    id: limit
+    attributes:
+      label: Posted legal limit (km/h)
+    validations:
+      required: true
+  - type: input
+    id: observed
+    attributes:
+      label: Observation/source date
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Primary official source URL
+    validations:
+      required: true
+  - type: textarea
+    id: licence
+    attributes:
+      label: Licence or redistribution permission
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and privacy confirmation
+      options:
+        - label: Evidence was collected while parked or by a passenger.
+          required: true
+        - label: Personal data and photo metadata have been removed.
+          required: true
+        - label: I understand radar control is not the alert threshold.
+          required: true
