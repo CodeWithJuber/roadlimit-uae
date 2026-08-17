@@ -1,8 +1,24 @@
 # RoadLimit UAE
 
+[![CI](https://github.com/CodeWithJuber/roadlimit-uae/actions/workflows/ci.yml/badge.svg)](https://github.com/CodeWithJuber/roadlimit-uae/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-1FD18A)
+![Status](https://img.shields.io/badge/status-research%20beta-F59E0B)
+
 Privacy-first, open-source speed awareness for Android and iPhone. Dubai-first research beta; not store-ready.
 
 > **Safety first:** This independent driver-awareness aid is not a government service, navigation authority, radar detector, or guarantee against fines. Always obey the posted and temporary signs, police directions, and applicable law. A radar-control value is an enforcement setting—not permission to exceed the posted limit. Set up only while parked and never handle the phone while driving.
+
+## Project status
+
+| Area | Current state |
+|---|---|
+| Source code | Public research beta under Apache-2.0 |
+| Android/iOS bundles | Compile successfully; physical-device matrix still required |
+| Live speed | Local GPS speed with fail-closed validation |
+| Limit source | Static value explicitly confirmed by the driver for each session |
+| Automatic road matching | Not shipped; licensed segment geometry and field validation are required |
+| Store distribution | Blocked until the documented release gates are completed |
 
 ## What works today
 
@@ -34,10 +50,12 @@ Radar-control numbers are never used for alerts or shown as a driving target. Th
 
 ## Quick start
 
-Prerequisites: Node.js 22+, Android Studio or Xcode, and an Expo development build.
+Prerequisites: Node.js 22+ and Android Studio or Xcode. The platform command below creates the Expo development build.
 
 ```bash
-npm install
+git clone https://github.com/CodeWithJuber/roadlimit-uae.git
+cd roadlimit-uae
+npm ci
 npx expo prebuild
 npx expo run:android
 # or: npx expo run:ios
@@ -70,7 +88,7 @@ This repository therefore does **not** copy the full article table. It bundles f
 - explicit licence/redistribution permission;
 - review for changed, temporary, and conflicting values.
 
-The [Dubai Pulse dataset](https://www.dubaipulse.gov.ae/data/dp-traffic/dp_speed_and_radar_limits-open) is labelled open data, but its metadata currently shows no specific licence. Confirm the applicable terms before redistributing it. The local importer must only be used with data you are authorised to use:
+The [Dubai Pulse dataset](https://www.dubaipulse.gov.ae/data/dp-traffic/dp_speed_and_radar_limits-open) is labelled open data, but its metadata showed no specific licence when checked on 2026-08-17. See the dated [source audit](docs/data/SOURCE_AUDIT.md) and confirm the applicable terms again before redistributing it. The local importer must only be used with data you are authorised to use:
 
 ```bash
 npm run data:import -- licensed-source.csv \
@@ -101,15 +119,16 @@ Important modules:
 - `src/core/speed.ts` — stale/poor-fix rejection and speed smoothing.
 - `src/data/demoRoads.ts` — small cited demonstrator, not a complete database.
 
+For design assumptions and non-negotiable safety invariants, see [docs/SAFETY_MODEL.md](docs/SAFETY_MODEL.md). Use [docs/DEVICE_TEST_PLAN.md](docs/DEVICE_TEST_PLAN.md) to record physical release evidence.
+
 ## Validation
 
 ```bash
-npm run typecheck
-npm test
 npm run check
+npm run doctor
 ```
 
-Tests cover speed conversion/smoothing, missing and stale GPS speed, alert transitions, cooldown, road-name matching, and data invariants. These checks support research development; they are not store-release approval.
+`npm run check` runs TypeScript, all tests, and repository-metadata/link validation. Tests cover speed conversion/smoothing, missing and stale GPS speed, alert transitions, cooldown, road-name matching, and data invariants. These checks support research development; they are not store-release approval.
 
 ## Research-beta and store-release gates
 
@@ -140,6 +159,10 @@ The linked [Emirates 24|7 article](https://www.emirates247.com/uae-guide/dubai-r
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a road correction. Never collect evidence while driving; a parked passenger should verify the sign. Report security problems privately as described in [SECURITY.md](SECURITY.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing. Never collect evidence while driving; a parked passenger should verify the sign. For usage help, see [SUPPORT.md](SUPPORT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md).
+
+Planned work is tracked in [ROADMAP.md](ROADMAP.md), project changes in [CHANGELOG.md](CHANGELOG.md), and academic/software citation metadata in [CITATION.cff](CITATION.cff).
+
+Maintainers can apply the external GitHub labels, rules, private-reporting, About-panel, and social-preview checklist in [docs/REPOSITORY_SETUP.md](docs/REPOSITORY_SETUP.md).
 
 Code is licensed under Apache-2.0. Road data and third-party sources have separate terms—see [DATA_LICENSE.md](DATA_LICENSE.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This project is not affiliated with or endorsed by Dubai Police, RTA, Digital Dubai, Emirates 24|7, or any UAE government entity.
