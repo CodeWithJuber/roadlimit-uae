@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose an improvement for the research beta.
+title: "[Feature]: "
+labels: [enhancement, needs-review]
+body:
+  - type: markdown
+    attributes:
+      value: Explain the user need and failure behaviour. Requests that encourage speeding, radar evasion, distraction, or unlicensed data redistribution will not be accepted.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or user need
+      description: What real problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: Include what should happen when data, GPS, permission, or notifications fail.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform scope
+      options: [Android, iOS, Both, Data/tooling only]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and sources
+      description: Link primary documentation, measurements, or licensed data where relevant.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: This proposal does not treat radar control as permission to exceed the posted limit.
+          required: true
+        - label: Testing/evidence will be collected while parked, by a passenger, or in simulation.
+          required: true
