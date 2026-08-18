@@ -3,19 +3,20 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
-import { DATA_SAFETY_NOTICE } from '../data/sources';
-import { getRoadById } from '../data/demoRoads';
-import type { DriveSettings, DriveSnapshot } from '../domain/types';
-import { colors, radius } from '../theme';
 import { LimitSign } from '../components/LimitSign';
 import { ModePill } from '../components/ModePill';
+import { getRoadById } from '../data/demoRoads';
+import type { DriveSettings, DriveSnapshot } from '../domain/types';
+import { colors, radius, spacing, typeScale } from '../theme';
 
 type Props = {
   snapshot: DriveSnapshot;
@@ -27,19 +28,65 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-const providerLabel = (snapshot: DriveSnapshot, settings: DriveSettings) => {
-  if (!snapshot.active) {
-    return 'CONFIRM TO START';
-  }
-  switch (snapshot.resolution.provider) {
-    case 'manual':
-      return 'MANUAL SIGN';
-    case 'catalog':
-      return 'ROAD REFERENCE';
-    default:
-      return 'NO MATCH';
-  }
+const sourceLabel = (snapshot: DriveSnapshot) => {
+  if (snapshot.resolution.provider === 'manual') return 'Manually confirmed';
+  if (snapshot.resolution.provider === 'catalog') return 'Road reference confirmed';
+  return 'No confirmed source';
 };
+
+const Gauge = ({
+  value,
+  active,
+  size,
+}: {
+  value: number | '—';
+  active: boolean;
+  size: number;
+}) => (
+  <View
+    accessible
+    accessibilityLabel={
+      value === '—' ? 'Current speed unavailable' : `Current speed ${value} kilometres per hour`
+    }
+    style={[styles.gauge, { width: size, height: size, borderRadius: size / 2 }]}
+  >
+    <View
+      style={[
+        styles.gaugeInner,
+        {
+          borderRadius: (size - 24) / 2,
+        },
+      ]}
+    />
+    {Array.from({ length: 24 }).map((_, index) => (
+      <View
+        // The marks are decorative and deliberately static.
+        key={index}
+        style={[styles.tickWrap, { transform: [{ rotate: `${index * 15}deg` }] }]}
+        pointerEvents="none"
+      >
+        <View
+          style={[
+            styles.tick,
+            index % 3 === 0 && styles.tickMajor,
+            active && index % 3 === 0 && styles.tickActive,
+          ]}
+        />
+      </View>
+    ))}
+    <View style={styles.gaugeReadout}>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={[styles.speed, { fontSize: Math.round(size * 0.38), lineHeight: Math.round(size * 0.42) }]}
+      >
+        {value}
+      </Text>
+      <Text style={styles.speedUnit}>km/h</Text>
+    </View>
+  </View>
+);
 
 export const DriveScreen = ({
   snapshot,
@@ -50,9 +97,16 @@ export const DriveScreen = ({
   onStop,
   onOpenSettings,
 }: Props) => {
+  const { height, width } = useWindowDimensions();
+  const compact = height < 860 || width < 370;
+  const gaugeSize = Math.min(width - 72, compact ? 226 : 260);
   const limit = snapshot.active ? snapshot.resolution.limitKmh : settings.manualLimitKmh;
-  const displaySpeed = snapshot.currentSpeedKmh === null ? '—' : Math.round(snapshot.currentSpeedKmh);
+  const displaySpeed =
+    snapshot.active && snapshot.currentSpeedKmh !== null
+      ? Math.round(snapshot.currentSpeedKmh)
+      : '—';
   const selectedRoad = getRoadById(settings.selectedRoadId);
+  const runtimeMessage = snapshot.message ?? snapshot.sessionWarning;
   const confirmedAt =
     snapshot.active && snapshot.resolution.observedAt > 0
       ? new Date(snapshot.resolution.observedAt).toLocaleTimeString([], {
@@ -60,23 +114,30 @@ export const DriveScreen = ({
           minute: '2-digit',
         })
       : null;
-  const visualAlert =
-    snapshot.active && snapshot.alertBand === 'over-limit'
-      ? { text: 'REDUCE SPEED', color: colors.red, icon: 'alert-octagon' }
-      : snapshot.active && snapshot.alertBand === 'approaching'
-        ? { text: 'APPROACHING SESSION LIMIT', color: colors.amber, icon: 'alert-outline' }
-        : null;
+  const difference =
+    snapshot.currentSpeedKmh !== null && limit !== null
+      ? Math.round(snapshot.currentSpeedKmh - limit)
+      : null;
 
   const confirmAndStart = () => {
     if (settings.detectionMode === 'manual-road' && !settings.selectedRoadId) {
-      Alert.alert('Choose a road reference', 'Select a candidate road value or switch to Confirm the sign mode.');
+      Alert.alert(
+        'Choose a road reference',
+        'Select a candidate road value or switch to Confirm a posted limit.',
+      );
       return;
     }
+
+    const trackingCopy =
+      Platform.OS === 'android'
+        ? 'Android beta tracks only while RoadLimit remains visible with the screen on.'
+        : settings.backgroundEnabled
+          ? 'RoadLimit uses precise location during this drive, including while the screen is locked or another app is open.'
+          : 'RoadLimit tracks only while this screen remains open.';
+
     Alert.alert(
       `Confirm ${settings.manualLimitKmh} km/h`,
-      settings.backgroundEnabled
-        ? 'Only continue if this matches the physical sign for your current section. RoadLimit UAE accesses precise location during this drive, including in the background while the screen is locked or another app is open, to calculate GPS speed and issue local alerts. Android shows a persistent notification and iOS shows its location indicator. It never auto-starts, stores coordinates, or uploads your route. This number stays static until you stop.'
-        : 'Only continue if this matches the physical sign for your current section. RoadLimit UAE accesses precise location while this screen is open to calculate GPS speed and issue local alerts. It never stores coordinates or uploads your route. This number stays static until you stop.',
+      `Continue only if this matches the posted sign for your current section. ${trackingCopy} Coordinates are not stored or uploaded. This value stays fixed until you stop the drive.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -86,257 +147,454 @@ export const DriveScreen = ({
               'https://github.com/CodeWithJuber/roadlimit-uae/blob/main/PRIVACY.md',
             ),
         },
-        { text: 'Agree & start', onPress: onStart },
+        { text: 'Confirm & start', onPress: onStart },
       ],
     );
   };
 
+  const primaryAction = (
+    <Pressable
+      style={({ pressed }) => [
+        styles.primaryButton,
+        snapshot.active && styles.stopButton,
+        (busy || (!snapshot.active && startBlocked)) && styles.buttonDisabled,
+        pressed && !busy && styles.pressed,
+      ]}
+      onPress={snapshot.active ? onStop : confirmAndStart}
+      disabled={busy || (!snapshot.active && startBlocked)}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy || (!snapshot.active && startBlocked), busy }}
+      accessibilityLabel={
+        snapshot.active
+          ? 'Stop driving session'
+          : startBlocked
+            ? 'Start unavailable until the app is reopened'
+            : `Confirm ${settings.manualLimitKmh} kilometres per hour and start`
+      }
+    >
+      {busy ? (
+        <ActivityIndicator color={colors.ink} />
+      ) : (
+        <MaterialCommunityIcons
+          name={snapshot.active ? 'stop' : startBlocked ? 'alert-circle-outline' : 'play'}
+          size={23}
+          color={startBlocked ? colors.muted : colors.ink}
+        />
+      )}
+      <Text style={[styles.primaryText, startBlocked && styles.primaryTextDisabled]}>
+        {snapshot.active
+          ? 'Stop drive'
+          : startBlocked
+            ? 'Reopen app to continue'
+            : `Confirm ${settings.manualLimitKmh} & start`}
+      </Text>
+    </Pressable>
+  );
+
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerRow}>
+    <ScrollView
+      contentContainerStyle={[styles.content, compact && styles.contentCompact]}
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>DUBAI-FIRST · OPEN SOURCE</Text>
-          <Text style={styles.title}>Drive calm.</Text>
+          <Text style={styles.brand}>RoadLimit</Text>
+          <Text style={styles.brandRegion}>UAE</Text>
         </View>
+        <View style={styles.headerIcon} accessibilityElementsHidden>
+          <MaterialCommunityIcons name="shield-outline" size={20} color={colors.muted} />
+        </View>
+      </View>
+
+      <View style={styles.modeWrap}>
         <ModePill snapshot={snapshot} />
       </View>
 
-      {visualAlert ? (
-        <View style={[styles.visualAlert, { backgroundColor: visualAlert.color }]}>
-          <MaterialCommunityIcons name={visualAlert.icon as never} size={24} color={colors.white} />
-          <Text style={styles.visualAlertText}>{visualAlert.text}</Text>
-        </View>
-      ) : null}
-
-      <View
-        style={[
-          styles.hero,
-          snapshot.alertBand === 'over-limit' && styles.heroOver,
-          snapshot.alertBand === 'approaching' && styles.heroApproaching,
-        ]}
-      >
-        <View style={styles.speedBlock}>
-          <Text style={styles.speed}>{displaySpeed}</Text>
-          <Text style={styles.speedUnit}>km/h</Text>
-          <Text style={styles.gpsText}>
-            {snapshot.lastFixAt
-              ? snapshot.accuracyMetres !== null &&
-                Number.isFinite(snapshot.accuracyMetres)
-                ? `GPS ±${Math.round(snapshot.accuracyMetres)} m`
-                : 'GPS accuracy unknown'
-              : 'Waiting for drive session'}
-          </Text>
-        </View>
-        <View style={styles.divider} />
+      <View style={styles.hero}>
+        <Gauge value={displaySpeed} active={snapshot.active} size={gaugeSize} />
         <View style={styles.limitBlock}>
-          <Text style={styles.microLabel}>
-            {snapshot.active ? 'CONFIRMED SESSION LIMIT' : 'SELECTED LIMIT — NOT CONFIRMED'}
+          <Text style={styles.limitCaption}>
+            {snapshot.active ? 'Confirmed limit' : 'Selected · confirm the sign'}
           </Text>
           <LimitSign
             limitKmh={limit}
             accessibilityLabel={
               snapshot.active
                 ? `Confirmed session limit ${limit ?? 'unknown'} kilometres per hour`
-                : `Selected unconfirmed limit ${limit ?? 'unknown'} kilometres per hour`
+                : `Selected candidate ${limit ?? 'unknown'} kilometres per hour, not yet confirmed`
             }
           />
-          <Text style={styles.provider}>{providerLabel(snapshot, settings)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.roadCard}>
-        <View style={styles.roadIcon}>
-          <MaterialCommunityIcons name="road-variant" size={24} color={colors.green} />
-        </View>
-        <View style={styles.roadCopy}>
-          <Text style={styles.microLabel}>
+          <Text numberOfLines={1} style={styles.limitSource}>
             {snapshot.active
-              ? 'STATIC SESSION LIMIT SOURCE'
-              : 'SELECTED SOURCE — NOT CONFIRMED'}
-          </Text>
-          <Text style={styles.roadName}>
-            {snapshot.resolution.roadName ??
-              (settings.detectionMode === 'manual-limit'
-                ? snapshot.active
-                  ? `Driver-confirmed ${settings.manualLimitKmh} km/h`
-                  : `Selected ${settings.manualLimitKmh} km/h — confirmation required`
-                : selectedRoad?.canonicalName ?? 'Road reference unavailable')}
-          </Text>
-          <Text style={styles.roadNote}>
-            {snapshot.resolution.advisory ?? 'The physical sign is authoritative.'}
-            {confirmedAt ? ` Confirmed at ${confirmedAt}.` : ''}
+              ? snapshot.resolution.roadName ?? sourceLabel(snapshot)
+              : settings.detectionMode === 'manual-road'
+                ? selectedRoad?.canonicalName ?? 'Choose a road reference'
+                : 'Manual selection'}
           </Text>
         </View>
-        {!snapshot.active ? (
-          <Pressable onPress={onOpenSettings} hitSlop={12} accessibilityLabel="Open settings">
-            <MaterialCommunityIcons name="tune-variant" size={25} color={colors.muted} />
-          </Pressable>
-        ) : null}
       </View>
 
-      {snapshot.message ? (
-        <View style={styles.messageCard}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.amber} />
-          <Text style={styles.messageText}>{snapshot.message}</Text>
+      {snapshot.active && snapshot.alertBand === 'over-limit' ? (
+        <View accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.dangerCard}>
+          <View style={styles.alertIcon}>
+            <MaterialCommunityIcons name="alert-outline" size={27} color={colors.red} />
+          </View>
+          <View style={styles.alertCopy}>
+            <Text style={styles.dangerTitle}>Slow down</Text>
+            <Text style={styles.dangerText}>
+              {difference !== null && difference > 0
+                ? `${difference} km/h over the confirmed limit`
+                : 'Speed is over the confirmed limit'}
+            </Text>
+          </View>
         </View>
       ) : null}
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.primaryButton,
-          snapshot.active && styles.stopButton,
-          pressed && styles.buttonPressed,
-        ]}
-        onPress={snapshot.active ? onStop : confirmAndStart}
-        disabled={busy || (!snapshot.active && startBlocked)}
-        accessibilityRole="button"
-        accessibilityLabel={
-          snapshot.active
-            ? 'Stop driving session'
-            : startBlocked
-              ? 'Start unavailable until the app is reopened'
-              : 'Start driving session'
-        }
-      >
-        {busy ? (
-          <ActivityIndicator color={colors.ink} />
+      {snapshot.active && snapshot.alertBand === 'approaching' ? (
+        <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.warningCard}>
+          <View style={styles.warningIcon}>
+            <MaterialCommunityIcons name="alert-outline" size={25} color={colors.amber} />
+          </View>
+          <View style={styles.alertCopy}>
+            <Text style={styles.warningTitle}>Approaching limit</Text>
+            <Text style={styles.warningText}>
+              {difference !== null && difference < 0
+                ? `${Math.abs(difference)} km/h below the confirmed limit`
+                : 'You are within the selected early-warning range'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {snapshot.active ? primaryAction : null}
+
+      <View style={styles.infoPanel}>
+        {snapshot.active ? (
+          <>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="crosshairs-gps" size={20} color={colors.cyan} />
+              <Text style={styles.infoLabel}>GPS accuracy</Text>
+              <Text style={styles.infoValue}>
+                {snapshot.lastFixAt
+                  ? snapshot.accuracyMetres !== null
+                    ? `±${Math.round(snapshot.accuracyMetres)} m`
+                    : 'Unavailable'
+                  : 'Waiting'}
+              </Text>
+            </View>
+            <View style={[styles.infoRow, styles.infoRowBorder]}>
+              <MaterialCommunityIcons name="shield-check-outline" size={20} color={colors.cyan} />
+              <Text style={styles.infoLabel}>{sourceLabel(snapshot)}</Text>
+              <Text style={styles.infoValue}>{confirmedAt ?? 'This session'}</Text>
+            </View>
+          </>
         ) : (
-          <MaterialCommunityIcons
-            name={
-              snapshot.active
-                ? 'stop-circle-outline'
-                : startBlocked
-                  ? 'alert-circle-outline'
-                  : 'navigation-variant'
-            }
-            size={24}
-            color={snapshot.active ? colors.white : colors.ink}
-          />
+          <>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="information-outline" size={20} color={colors.cyan} />
+              <Text style={styles.infoLabel}>GPS starts after confirmation</Text>
+            </View>
+            <View style={[styles.infoRow, styles.infoRowBorder]}>
+              <MaterialCommunityIcons name="traffic-cone" size={20} color={colors.muted} />
+              <Text style={styles.infoLabel}>
+                Follow posted and temporary signs and authority instructions
+              </Text>
+            </View>
+          </>
         )}
-        <Text style={[styles.primaryText, snapshot.active && styles.stopText]}>
-          {snapshot.active
-            ? 'STOP DRIVE'
-            : startBlocked
-              ? 'REOPEN APP TO CONTINUE'
-              : 'START DRIVE'}
-        </Text>
-      </Pressable>
+      </View>
+
+      {runtimeMessage ? (
+        <View
+          accessibilityRole={snapshot.status === 'error' ? 'alert' : 'text'}
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.messageCard,
+            snapshot.status === 'error' && styles.messageCardError,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={snapshot.status === 'error' ? 'alert-circle-outline' : 'information-outline'}
+            size={20}
+            color={snapshot.status === 'error' ? colors.red : colors.muted}
+          />
+          <Text
+            style={[
+              styles.messageText,
+              snapshot.status === 'error' && styles.messageTextError,
+            ]}
+          >
+            {runtimeMessage}
+          </Text>
+        </View>
+      ) : null}
+
+      {!snapshot.active ? primaryAction : null}
 
       {!snapshot.active ? (
-        <View style={styles.actionRow}>
-          <Pressable style={styles.secondaryButton} onPress={onOpenSettings}>
-            <MaterialCommunityIcons name="speedometer" size={20} color={colors.blue} />
-            <Text style={styles.secondaryText}>Set posted limit</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+          onPress={onOpenSettings}
+          accessibilityRole="button"
+          accessibilityLabel="Change the selected limit"
+        >
+          <Text style={styles.secondaryText}>Change limit</Text>
+        </Pressable>
       ) : null}
 
-      <View style={styles.safetyCard}>
-        <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.green} />
-        <Text style={styles.safetyText}>{DATA_SAFETY_NOTICE} Never handle the phone while moving.</Text>
-      </View>
+      <Text style={styles.platformText}>
+        {Platform.OS === 'android'
+          ? 'Android beta · Screen-on tracking only'
+          : 'Follow posted signs · Never handle the phone while moving'}
+      </Text>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 120, gap: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  eyebrow: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-  title: { color: colors.text, fontSize: 34, fontWeight: '900', letterSpacing: -1.2, marginTop: 3 },
-  visualAlert: {
-    minHeight: 58,
-    borderRadius: radius.medium,
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: 100,
+    gap: spacing.sm,
+  },
+  contentCompact: {
+    paddingTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  header: {
+    minHeight: 50,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brand: {
+    color: colors.text,
+    fontSize: 23,
+    lineHeight: 25,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  brandRegion: {
+    color: colors.cyan,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-  },
-  visualAlertText: { color: colors.white, fontSize: 15, fontWeight: '900', letterSpacing: 1.1 },
-  hero: {
-    minHeight: 254,
-    borderRadius: radius.large,
-    backgroundColor: colors.surface,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.line,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
+    borderColor: colors.lineStrong,
   },
-  heroOver: { borderColor: colors.red, borderWidth: 3 },
-  heroApproaching: { borderColor: colors.amber, borderWidth: 2 },
-  speedBlock: { flex: 1, alignItems: 'center' },
-  speed: { color: colors.text, fontSize: 90, fontWeight: '900', letterSpacing: -6, lineHeight: 96 },
-  speedUnit: { color: colors.muted, fontSize: 16, fontWeight: '800', letterSpacing: 1 },
-  gpsText: { color: colors.muted, fontSize: 11, marginTop: 14 },
-  divider: { height: 150, width: 1, backgroundColor: colors.line, marginHorizontal: 16 },
-  limitBlock: { flex: 1, alignItems: 'center', gap: 10 },
-  microLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  provider: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  roadCard: {
+  modeWrap: { minHeight: 38, alignItems: 'center', justifyContent: 'center' },
+  hero: { alignItems: 'center', gap: spacing.sm },
+  gauge: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvasRaised,
+    borderWidth: 2,
+    borderColor: colors.cyanStrong,
+    shadowColor: colors.cyan,
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 7,
+  },
+  gaugeInner: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    bottom: 12,
+    left: 12,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+  },
+  tickWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+  },
+  tick: {
+    width: 1,
+    height: 7,
+    marginTop: 10,
+    borderRadius: 1,
+    backgroundColor: colors.lineStrong,
+  },
+  tickMajor: { width: 2, height: 12 },
+  tickActive: { backgroundColor: colors.cyan },
+  gaugeReadout: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  speed: {
+    width: '100%',
+    color: colors.text,
+    fontWeight: '600',
+    letterSpacing: -4,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  speedUnit: {
+    color: colors.muted,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '500',
+    marginTop: -2,
+  },
+  limitBlock: { alignItems: 'center', gap: 6 },
+  limitCaption: {
+    color: colors.muted,
+    fontSize: typeScale.micro,
+    lineHeight: 15,
+    fontWeight: '700',
+    letterSpacing: 0.65,
+    textTransform: 'uppercase',
+  },
+  limitSource: {
+    maxWidth: 250,
+    color: colors.faint,
+    fontSize: typeScale.label,
+    lineHeight: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  dangerCard: {
+    minHeight: 78,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    backgroundColor: colors.surfaceRaised,
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.redSoft,
+    borderWidth: 1,
+    borderColor: colors.red,
     borderRadius: radius.medium,
-    borderWidth: 1,
-    borderColor: colors.line,
   },
-  roadIcon: {
+  warningCard: {
+    minHeight: 78,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.amberSoft,
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.medium,
+  },
+  alertIcon: {
     width: 46,
     height: 46,
-    borderRadius: 14,
-    backgroundColor: colors.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 23,
+    backgroundColor: '#250B10',
   },
-  roadCopy: { flex: 1, gap: 4 },
-  roadName: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  roadNote: { color: colors.muted, fontSize: 12, lineHeight: 17 },
-  messageCard: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    backgroundColor: colors.amberSoft,
-    borderRadius: radius.medium,
-    padding: 14,
-  },
-  messageText: { color: colors.amber, flex: 1, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-  primaryButton: {
-    minHeight: 60,
-    borderRadius: radius.medium,
-    backgroundColor: colors.green,
-    flexDirection: 'row',
+  warningIcon: {
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    borderRadius: 23,
+    backgroundColor: '#211807',
   },
-  stopButton: { backgroundColor: colors.red },
-  buttonPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
-  primaryText: { color: colors.ink, fontSize: 15, fontWeight: '900', letterSpacing: 1.2 },
-  stopText: { color: colors.white },
-  actionRow: { flexDirection: 'row', gap: 12 },
-  secondaryButton: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radius.medium,
+  alertCopy: { flex: 1, gap: 3 },
+  dangerTitle: { color: colors.red, fontSize: 19, lineHeight: 23, fontWeight: '700' },
+  dangerText: { color: colors.text, fontSize: typeScale.body, lineHeight: 19 },
+  warningTitle: { color: colors.amber, fontSize: 18, lineHeight: 22, fontWeight: '700' },
+  warningText: { color: colors.text, fontSize: typeScale.body, lineHeight: 19 },
+  infoPanel: {
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
+    borderRadius: radius.medium,
+  },
+  infoRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  infoRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.lineStrong },
+  infoLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: typeScale.body,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  infoValue: {
+    color: colors.muted,
+    fontSize: typeScale.label,
+    lineHeight: 17,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  messageCard: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.small,
+  },
+  messageCardError: { backgroundColor: colors.redSoft },
+  messageText: { flex: 1, color: colors.muted, fontSize: typeScale.label, lineHeight: 18 },
+  messageTextError: { color: colors.red },
+  primaryButton: {
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  secondaryText: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  safetyCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.medium,
-    padding: 16,
-    backgroundColor: colors.greenSoft,
+    backgroundColor: colors.cyan,
   },
-  safetyText: { color: '#C8F6E3', flex: 1, fontSize: 12, lineHeight: 18 },
+  stopButton: { backgroundColor: colors.red },
+  buttonDisabled: {
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+  },
+  pressed: { opacity: 0.72 },
+  primaryText: {
+    color: colors.ink,
+    fontSize: typeScale.bodyLarge,
+    lineHeight: 22,
+    fontWeight: '800',
+  },
+  primaryTextDisabled: { color: colors.muted },
+  secondaryButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryText: {
+    color: colors.cyan,
+    fontSize: typeScale.body,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  platformText: {
+    minHeight: 26,
+    color: colors.faint,
+    fontSize: typeScale.micro,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
 });

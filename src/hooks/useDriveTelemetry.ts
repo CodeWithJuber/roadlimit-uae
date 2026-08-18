@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type * as Location from 'expo-location';
+import {
+  activateKeepAwakeAsync,
+  deactivateKeepAwake,
+} from 'expo-keep-awake';
+import { AppState } from 'react-native';
 
 import { MAX_FIX_AGE_MS } from '../core/speed';
 import {
@@ -11,15 +16,18 @@ import {
 } from '../services/driveEngine';
 import { stopAlertOutputs } from '../services/notifications';
 import {
-  activateRuntimeSession,
-  clearRuntimeSession,
-} from '../services/runtimeSession';
-import {
-  beginTracking,
+  LocationPermissionError,
+  type TrackingMode,
   isBackgroundTrackingRegistered,
+  prepareTracking,
+  startPreparedTracking,
   stopTracking,
   watchForeground,
 } from '../services/tracking';
+import {
+  activateRuntimeSession,
+  clearRuntimeSession,
+} from '../services/runtimeSession';
 import {
   DEFAULT_SETTINGS,
   EMPTY_SNAPSHOT,
@@ -28,6 +36,7 @@ import {
   getDriveSession,
   getSettings,
   getSnapshot,
+  isDriveSessionCurrent,
   resetDriveBuffers,
   saveSettings,
   saveSnapshot,
@@ -39,10 +48,13 @@ type CleanupResult = {
   stateCleanupFailed: boolean;
 };
 
+const KEEP_AWAKE_TAG = 'roadlimit-active-screen-on-drive';
+
 const quiesceDriveSession = async (): Promise<CleanupResult> => {
   let locationStopFailed = false;
   let stateCleanupFailed = false;
   clearRuntimeSession();
+  await deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
   await endDriveSession().catch(() => {
     stateCleanupFailed = true;
   });
@@ -68,6 +80,8 @@ export const useDriveTelemetry = () => {
   const [hydrated, setHydrated] = useState(false);
   const [startBlocked, setStartBlocked] = useState(false);
   const foregroundSubscription = useRef<Location.LocationSubscription | null>(null);
+  const activeSessionId = useRef<string | null>(null);
+  const trackingMode = useRef<TrackingMode | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -160,9 +174,48 @@ export const useDriveTelemetry = () => {
   useEffect(
     () => () => {
       foregroundSubscription.current?.remove();
+      void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
     },
     [],
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      const sessionId = activeSessionId.current;
+      if (
+        state === 'active' ||
+        trackingMode.current !== 'foreground' ||
+        !sessionId
+      ) {
+        return;
+      }
+
+      // Screen-open mode has no dependable alert path once the app leaves the
+      // foreground. Invalidate immediately instead of implying protection.
+      activeSessionId.current = null;
+      trackingMode.current = null;
+      foregroundSubscription.current?.remove();
+      foregroundSubscription.current = null;
+      void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
+      void processLocationError(
+        'Screen-on tracking stopped because RoadLimit left the foreground. Confirm the current sign and start again while parked.',
+        sessionId,
+        false,
+      )
+        .then(async () => setSnapshot(await getSnapshot()))
+        .catch(() => {
+          setStartBlocked(true);
+          setSnapshot({
+            ...EMPTY_SNAPSHOT,
+            status: 'error',
+            restartRequired: true,
+            message:
+              'Screen-on tracking ended, but cleanup could not be confirmed. Reopen the app before driving again.',
+          });
+        });
+    });
+    return () => subscription.remove();
+  }, []);
 
   const updateSettings = useCallback(async (next: DriveSettings) => {
     if (!hydrated) return;
@@ -174,6 +227,11 @@ export const useDriveTelemetry = () => {
     if (!hydrated || startBlocked) return;
     setBusy(true);
     try {
+      // Request every OS permission before persisting an active drive. Some
+      // Android builds recreate the activity after a permission decision.
+      // Persisting first would make that harmless recreation look like an
+      // interrupted drive and immediately stop it during hydration.
+      const preparation = await prepareTracking(settings);
       await resetDriveBuffers();
       const session = await beginDriveSession(settings);
       activateRuntimeSession(session.id);
@@ -186,8 +244,9 @@ export const useDriveTelemetry = () => {
       setSnapshot(starting);
       await saveSnapshot(starting);
 
-      const result = await beginTracking(settings);
-      if (result.mode === 'foreground') {
+      await startPreparedTracking(preparation);
+      if (preparation.mode === 'foreground') {
+        await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
         foregroundSubscription.current = await watchForeground(
           async (sample) => {
             const next = await processLocationSamples([sample], true, session.id);
@@ -196,21 +255,39 @@ export const useDriveTelemetry = () => {
           async (message) => {
             foregroundSubscription.current?.remove();
             foregroundSubscription.current = null;
+            activeSessionId.current = null;
+            trackingMode.current = null;
+            await deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
             await processLocationError(message, session.id, false);
             setSnapshot(await getSnapshot());
           },
         );
       }
 
+      activeSessionId.current = session.id;
+      trackingMode.current = preparation.mode;
+      if (
+        !(await isDriveSessionCurrent(session.id)) ||
+        (preparation.mode === 'foreground' && AppState.currentState !== 'active')
+      ) {
+        throw new LocationPermissionError(
+          'RoadLimit left the foreground before tracking was ready. Return to the app and start again while parked.',
+        );
+      }
+
       const active: DriveSnapshot = {
         ...starting,
         status: 'degraded',
-        message: result.warning ?? 'Waiting for a current GPS speed.',
-        ...(result.warning ? { sessionWarning: result.warning } : {}),
+        message: preparation.warning ?? 'Waiting for a current GPS speed.',
+        ...(preparation.warning
+          ? { sessionWarning: preparation.warning }
+          : {}),
       };
       setSnapshot(active);
       await saveSnapshot(active);
     } catch (error) {
+      activeSessionId.current = null;
+      trackingMode.current = null;
       foregroundSubscription.current?.remove();
       foregroundSubscription.current = null;
       const cleanup = await quiesceDriveSession();
@@ -235,6 +312,8 @@ export const useDriveTelemetry = () => {
 
   const stop = useCallback(async () => {
     setBusy(true);
+    activeSessionId.current = null;
+    trackingMode.current = null;
     foregroundSubscription.current?.remove();
     foregroundSubscription.current = null;
     const cleanup = await quiesceDriveSession();

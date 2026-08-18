@@ -8,4 +8,4 @@ export const LINKED_ARTICLE_URL =
   'https://www.emirates247.com/uae-guide/dubai-radar-limits-explained-complete-list-of-road-speed-limits-and-radar-control-speeds/4592';
 
 export const DATA_SAFETY_NOTICE =
-  'Road-speed information is advisory and may be incomplete or outdated. Always obey the signs currently displayed on the road. Radar control is an enforcement setting, not permission to exceed the posted limit.';
+  'Road-speed information is advisory and may be incomplete or outdated. Follow posted and temporary signs, authority instructions, and applicable law. Radar control is an enforcement setting, not permission to exceed the posted limit.';

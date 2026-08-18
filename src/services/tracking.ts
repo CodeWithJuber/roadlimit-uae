@@ -1,7 +1,7 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { LOCATION_TASK_NAME } from '../background/locationTaskConfig';
 import type { DriveSettings, LocationSample } from '../domain/types';
@@ -14,7 +14,38 @@ export type TrackingStartResult = {
   warning: string | null;
 };
 
+export type TrackingPreparation = TrackingStartResult;
+
 export class LocationPermissionError extends Error {}
+
+const waitForVisibleApp = async (): Promise<void> => {
+  if (AppState.currentState === 'active') return;
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let subscription: { remove: () => void } | null = null;
+    const finish = (error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      subscription?.remove();
+      if (error) reject(error);
+      else resolve();
+    };
+    subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') finish();
+    });
+    timeout = setTimeout(
+      () =>
+        finish(
+          new LocationPermissionError(
+            'Return to RoadLimit UAE and start the drive again while the app is visible.',
+          ),
+        ),
+      8_000,
+    );
+  });
+};
 
 export const mapLocation = (location: Location.LocationObject): LocationSample => ({
   latitude: location.coords.latitude,
@@ -25,9 +56,9 @@ export const mapLocation = (location: Location.LocationObject): LocationSample =
   timestamp: location.timestamp,
 });
 
-export const beginTracking = async (
+export const prepareTracking = async (
   settings: DriveSettings,
-): Promise<TrackingStartResult> => {
+): Promise<TrackingPreparation> => {
   const servicesEnabled = await Location.hasServicesEnabledAsync();
   if (!servicesEnabled) {
     throw new LocationPermissionError('Turn on Location Services before starting a drive.');
@@ -49,9 +80,27 @@ export const beginTracking = async (
     );
   }
 
+  // Permission sheets can briefly background or recreate an Android activity.
+  // Finish each prompt phase only after the app is visible again.
+  await waitForVisibleApp();
+
   const notificationsReady = settings.notificationsEnabled
-    ? await configureAlerts()
+    ? await configureAlerts().catch(() => false)
     : false;
+  await waitForVisibleApp();
+
+  // Expo SDK 57's Android background-location foreground-service path has an
+  // accepted lifecycle defect that can stop or freeze some devices. The beta
+  // therefore uses the foreground watcher on Android and keeps the screen
+  // awake; iOS background support remains separately gated below.
+  if (Platform.OS === 'android') {
+    return {
+      mode: 'foreground',
+      warning: notificationsReady
+        ? 'Android beta uses screen-on tracking for reliability. Keep RoadLimit open; tracking stops if you leave the app or lock the screen.'
+        : 'Android beta uses screen-on visual alerts. Keep RoadLimit open; tracking stops if you leave the app or lock the screen.',
+    };
+  }
 
   if (!settings.backgroundEnabled) {
     return {
@@ -93,12 +142,32 @@ export const beginTracking = async (
         warning: 'Always location was not granted. Screen-open mode is active.',
       };
     }
+    await waitForVisibleApp();
   }
 
-  const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+  return { mode: 'background', warning: null };
+};
+
+export const startPreparedTracking = async (
+  preparation: TrackingPreparation,
+): Promise<void> => {
+  if (preparation.mode !== 'background') return;
+
+  // Defence in depth: Android beta must never enter Expo SDK 57's unstable
+  // background FGS path, even if a malformed preparation reaches this call.
+  if (Platform.OS === 'android') {
+    throw new LocationPermissionError(
+      'Android background tracking is disabled in this beta. Use screen-on mode.',
+    );
+  }
+
+  const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(
+    LOCATION_TASK_NAME,
+  );
   if (alreadyStarted) {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
   }
+  await waitForVisibleApp();
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.BestForNavigation,
     timeInterval: 2_000,
@@ -109,12 +178,10 @@ export const beginTracking = async (
     foregroundService: {
       notificationTitle: 'RoadLimit UAE is active',
       notificationBody: 'Monitoring speed against the session limit you confirmed.',
-      notificationColor: '#1FD18A',
+      notificationColor: '#F26430',
       killServiceOnDestroy: false,
     },
   });
-
-  return { mode: 'background', warning: null };
 };
 
 export const watchForeground = (

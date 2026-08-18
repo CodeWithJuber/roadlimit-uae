@@ -14,12 +14,20 @@ import { LimitSign } from '../components/LimitSign';
 import { DEMO_ROADS } from '../data/demoRoads';
 import { DUBAI_POLICE_SPEED_LIMITS_URL } from '../data/sources';
 import type { DriveSettings, RoadLimitRecord } from '../domain/types';
-import { colors, radius } from '../theme';
+import { colors, radius, spacing, typeScale } from '../theme';
 
 type Props = {
   settings: DriveSettings;
   disabled: boolean;
   onSelect: (road: RoadLimitRecord, limitKmh: number) => void;
+};
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatDate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return value;
+  return `${day} ${MONTHS[month - 1]} ${year}`;
 };
 
 export const RoadsScreen = ({ settings, disabled, onSelect }: Props) => {
@@ -28,183 +36,362 @@ export const RoadsScreen = ({ settings, disabled, onSelect }: Props) => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return DEMO_ROADS;
     return DEMO_ROADS.filter((road) =>
-      [road.canonicalName, ...road.aliases].some((name) => name.toLowerCase().includes(normalized)),
+      [road.canonicalName, ...road.aliases].some((name) =>
+        name.toLowerCase().includes(normalized),
+      ),
     );
   }, [query]);
+  const sourceChecked = DEMO_ROADS[0]?.source.verifiedAt;
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.eyebrow}>PARKED REFERENCE</Text>
-      <Text style={styles.title}>Road limits</Text>
-      <Text style={styles.subtitle}>
-        A deliberately small demo catalog. Confirm the sign for your exact section before selecting a value.
-      </Text>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>Road references</Text>
+        <Text style={styles.subtitle}>
+          Road-name candidates from a linked Dubai Police source. Confirm the posted sign for your
+          section.
+        </Text>
+      </View>
 
       {disabled ? (
-        <View style={styles.lockedNotice}>
+        <View accessibilityRole="alert" style={styles.lockedNotice}>
           <MaterialCommunityIcons name="lock-outline" size={20} color={colors.amber} />
-          <Text style={styles.lockedText}>Stop the drive before changing the selected road or limit.</Text>
+          <Text style={styles.lockedText}>
+            References are locked during a drive. Stop while parked to change the limit.
+          </Text>
         </View>
       ) : null}
 
       <View style={styles.searchWrap}>
-        <MaterialCommunityIcons name="magnify" size={22} color={colors.muted} />
+        <MaterialCommunityIcons name="magnify" size={21} color={colors.muted} />
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search road name or route ref"
-          placeholderTextColor={colors.muted}
+          placeholder="Search Dubai roads"
+          placeholderTextColor={colors.faint}
           style={styles.search}
           autoCapitalize="none"
           autoCorrect={false}
           editable={!disabled}
+          accessibilityLabel="Search road references"
+          returnKeyType="search"
         />
       </View>
 
-      <View style={styles.notice}>
-        <MaterialCommunityIcons name="database-lock-outline" size={22} color={colors.amber} />
-        <Text style={styles.noticeText}>
-          The full 62-row press table is not bundled: it lacks segment geometry and the official open-data licence is unspecified. Contributors can propose licensed data packs for review.
+      <View style={styles.evidenceNotice}>
+        <View style={styles.evidenceIcon}>
+          <MaterialCommunityIcons name="map-marker-alert-outline" size={22} color={colors.cyan} />
+        </View>
+        <View style={styles.evidenceCopy}>
+          <Text style={styles.evidenceTitle}>{DEMO_ROADS.length} road-name references</Text>
+          <Text style={styles.evidenceText}>
+            Source checked {sourceChecked ? formatDate(sourceChecked) : 'date unavailable'} · no
+            segment geometry is bundled.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.listHeader}>
+        <Text style={styles.listTitle}>Available candidates</Text>
+        <Text style={styles.listCount}>{roads.length}</Text>
+      </View>
+
+      {roads.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="road-variant" size={27} color={colors.faint} />
+          <Text style={styles.emptyTitle}>No matching reference</Text>
+          <Text style={styles.emptyText}>Try “Al Khail” or a route reference such as “E11”.</Text>
+        </View>
+      ) : null}
+
+      {roads.map((road) => {
+        const coverageLabel =
+          road.postedLimitsKmh.length > 1
+            ? 'Multiple values · exact section unknown'
+            : 'Road-name only · exact section unknown';
+        const selectedRoad = settings.selectedRoadId === road.id;
+        return (
+          <View
+            key={road.id}
+            style={[styles.card, selectedRoad && styles.cardSelected]}
+            accessibilityLabel={`${road.canonicalName}, ${coverageLabel}`}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.roadIcon}>
+                <MaterialCommunityIcons name="map-marker-outline" size={21} color={colors.text} />
+              </View>
+              <View style={styles.roadCopy}>
+                <Text style={styles.roadName}>{road.canonicalName}</Text>
+                <Text style={styles.aliases}>{road.aliases.join(' · ')}</Text>
+              </View>
+              <View style={styles.checkedBadge}>
+                <MaterialCommunityIcons name="source-branch" size={13} color={colors.cyan} />
+                <Text style={styles.checkedText}>Source checked</Text>
+              </View>
+            </View>
+
+            <View style={styles.candidateRow} accessibilityRole="radiogroup">
+              {road.postedLimitsKmh.map((limit) => {
+                const selected = selectedRoad && settings.manualLimitKmh === limit;
+                return (
+                  <Pressable
+                    key={limit}
+                    onPress={() => !disabled && onSelect(road, limit)}
+                    disabled={disabled}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected, disabled }}
+                    accessibilityLabel={`${limit} kilometres per hour candidate for ${road.canonicalName}`}
+                    accessibilityHint="Confirm the posted sign for the current section before starting"
+                    style={({ pressed }) => [
+                      styles.candidate,
+                      selected && styles.candidateSelected,
+                      disabled && styles.disabled,
+                      pressed && !disabled && styles.pressed,
+                    ]}
+                  >
+                    <LimitSign
+                      limitKmh={limit}
+                      compact
+                      accessibilityLabel={`${limit} kilometres per hour candidate`}
+                    />
+                    <View style={styles.candidateState}>
+                      <MaterialCommunityIcons
+                        name={selected ? 'check-circle' : 'circle-outline'}
+                        size={15}
+                        color={selected ? colors.cyan : colors.faint}
+                      />
+                      <Text style={[styles.candidateText, selected && styles.candidateTextSelected]}>
+                        {selected ? 'Selected' : 'Candidate'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.metaRow}>
+              <MaterialCommunityIcons
+                name="map-marker-question-outline"
+                size={17}
+                color={colors.amber}
+              />
+              <Text style={styles.coverageText}>{coverageLabel}</Text>
+              <Text style={styles.checkedDate}>
+                Checked {formatDate(road.source.verifiedAt)}
+              </Text>
+            </View>
+
+            <Text style={styles.note}>{road.note}</Text>
+          </View>
+        );
+      })}
+
+      <View style={styles.truthFooter}>
+        <MaterialCommunityIcons name="information-outline" size={20} color={colors.muted} />
+        <Text style={styles.truthText}>
+          Limits can vary by direction and section. Follow posted and temporary signs and authority
+          instructions.
         </Text>
       </View>
 
-      {roads.map((road) => (
-        <View key={road.id} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleWrap}>
-              <Text style={styles.cardTitle}>{road.canonicalName}</Text>
-              <Text style={styles.aliases}>{road.aliases.join(' · ')}</Text>
-            </View>
-            <View style={styles.confidencePill}>
-              <Text style={styles.confidence}>{road.confidence.toUpperCase()}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionLabel}>CANDIDATE VALUES — VERIFY THE PHYSICAL SIGN</Text>
-          <View style={styles.limitRow}>
-            {road.postedLimitsKmh.map((limit) => {
-              const selected =
-                settings.selectedRoadId === road.id && settings.manualLimitKmh === limit;
-              return (
-                <Pressable
-                  key={limit}
-                  onPress={() => !disabled && onSelect(road, limit)}
-                  disabled={disabled}
-                  style={[
-                    styles.limitChoice,
-                    selected && styles.limitChoiceSelected,
-                    disabled && styles.limitChoiceDisabled,
-                  ]}
-                >
-                  <LimitSign
-                    limitKmh={limit}
-                    compact
-                    accessibilityLabel={`Candidate limit ${limit} kilometres per hour; verify the physical sign`}
-                  />
-                  <Text style={[styles.useText, selected && styles.useTextSelected]}>
-                    {selected ? 'SELECTED' : 'USE THIS'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={styles.note}>{road.note}</Text>
-        </View>
-      ))}
-
       <Pressable
-        style={[styles.sourceButton, disabled && styles.disabledAction]}
+        style={({ pressed }) => [
+          styles.sourceButton,
+          disabled && styles.disabled,
+          pressed && !disabled && styles.pressed,
+        ]}
         onPress={() => void Linking.openURL(DUBAI_POLICE_SPEED_LIMITS_URL)}
         disabled={disabled}
+        accessibilityRole="link"
+        accessibilityLabel="Open the Dubai Police street speed limits source"
       >
-        <Text style={styles.sourceText}>Open current Dubai Police source</Text>
-        <MaterialCommunityIcons name="open-in-new" size={18} color={colors.blue} />
+        <MaterialCommunityIcons name="shield-link-variant-outline" size={21} color={colors.cyan} />
+        <Text style={styles.sourceText}>Open Dubai Police source</Text>
+        <MaterialCommunityIcons name="open-in-new" size={18} color={colors.muted} />
       </Pressable>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 120, gap: 14 },
-  eyebrow: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-  title: { color: colors.text, fontSize: 34, fontWeight: '900', letterSpacing: -1.2 },
-  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 21, marginBottom: 4 },
+  content: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: 104,
+    gap: spacing.sm,
+  },
+  header: { gap: spacing.xs, marginBottom: spacing.xs },
+  title: {
+    color: colors.text,
+    fontSize: typeScale.title,
+    lineHeight: 36,
+    fontWeight: '700',
+    letterSpacing: -0.9,
+  },
+  subtitle: { color: colors.muted, fontSize: typeScale.body, lineHeight: 21 },
   lockedNotice: {
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 14,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.amberSoft,
     borderRadius: radius.medium,
+    borderWidth: 1,
+    borderColor: '#5B4315',
   },
-  lockedText: { color: colors.amber, flex: 1, fontSize: 12, fontWeight: '700' },
+  lockedText: { flex: 1, color: colors.amber, fontSize: typeScale.label, lineHeight: 18, fontWeight: '600' },
   searchWrap: {
-    height: 54,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: radius.medium,
-    paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: colors.line,
-  },
-  search: { flex: 1, height: 54, color: colors.text, fontSize: 15 },
-  notice: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: colors.amberSoft,
     borderRadius: radius.medium,
-    padding: 15,
   },
-  noticeText: { flex: 1, color: '#FFE6AC', fontSize: 12, lineHeight: 18 },
+  search: { flex: 1, minHeight: 52, color: colors.text, fontSize: typeScale.bodyLarge },
+  evidenceNotice: {
+    minHeight: 74,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.cyanWash,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    borderRadius: radius.medium,
+  },
+  evidenceIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: colors.cyanSoft,
+  },
+  evidenceCopy: { flex: 1, gap: 3 },
+  evidenceTitle: { color: colors.text, fontSize: typeScale.body, lineHeight: 19, fontWeight: '700' },
+  evidenceText: { color: colors.muted, fontSize: typeScale.label, lineHeight: 18 },
+  listHeader: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xxs,
+  },
+  listTitle: { color: colors.muted, fontSize: typeScale.label, lineHeight: 17, fontWeight: '700' },
+  listCount: {
+    minWidth: 26,
+    minHeight: 26,
+    color: colors.cyan,
+    fontSize: typeScale.label,
+    lineHeight: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+    backgroundColor: colors.cyanSoft,
+    borderRadius: 13,
+  },
+  emptyState: {
+    minHeight: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.large,
+  },
+  emptyTitle: { color: colors.text, fontSize: typeScale.bodyLarge, fontWeight: '700' },
+  emptyText: { color: colors.muted, fontSize: typeScale.label, lineHeight: 18, textAlign: 'center' },
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.large,
-    padding: 17,
-    gap: 14,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  cardTitleWrap: { flex: 1, gap: 3 },
-  cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  aliases: { color: colors.muted, fontSize: 11 },
-  confidencePill: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.pill,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-  },
-  confidence: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  sectionLabel: { color: colors.amber, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  limitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  limitChoice: {
-    minWidth: 94,
-    alignItems: 'center',
-    gap: 8,
-    padding: 11,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.medium,
-  },
-  limitChoiceSelected: { borderColor: colors.green, backgroundColor: colors.greenSoft },
-  limitChoiceDisabled: { opacity: 0.4 },
-  useText: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  useTextSelected: { color: colors.green },
-  note: { color: colors.muted, fontSize: 11, lineHeight: 17 },
-  sourceButton: {
-    height: 52,
-    flexDirection: 'row',
+  cardSelected: { borderColor: colors.cyan, backgroundColor: colors.cyanWash },
+  cardHeader: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  roadIcon: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceRaised,
+  },
+  roadCopy: { flex: 1, minWidth: 0, gap: 2 },
+  roadName: { color: colors.text, fontSize: typeScale.bodyLarge, lineHeight: 21, fontWeight: '700' },
+  aliases: { color: colors.faint, fontSize: typeScale.micro, lineHeight: 15 },
+  checkedBadge: {
+    minHeight: 30,
+    maxWidth: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    borderRadius: radius.small,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.canvasRaised,
+  },
+  checkedText: { flexShrink: 1, color: colors.cyan, fontSize: 10, lineHeight: 13, fontWeight: '600' },
+  candidateRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  candidate: {
+    minWidth: 82,
+    minHeight: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    padding: 6,
+    borderRadius: radius.medium,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  candidateSelected: { borderColor: colors.cyan, backgroundColor: colors.cyanSoft },
+  candidateState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  candidateText: { color: colors.muted, fontSize: typeScale.micro, lineHeight: 14, fontWeight: '600' },
+  candidateTextSelected: { color: colors.cyan },
+  metaRow: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  coverageText: {
+    flex: 1,
+    color: colors.amber,
+    fontSize: typeScale.micro,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  checkedDate: { color: colors.faint, fontSize: typeScale.micro, lineHeight: 16 },
+  note: { color: colors.muted, fontSize: typeScale.label, lineHeight: 18 },
+  truthFooter: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
     borderRadius: radius.medium,
   },
-  sourceText: { color: colors.blue, fontSize: 13, fontWeight: '700' },
-  disabledAction: { opacity: 0.4 },
+  truthText: { flex: 1, color: colors.muted, fontSize: typeScale.label, lineHeight: 18 },
+  sourceButton: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    borderRadius: radius.medium,
+  },
+  sourceText: { flex: 1, color: colors.text, fontSize: typeScale.body, lineHeight: 20, fontWeight: '700' },
+  disabled: { opacity: 0.38 },
+  pressed: { opacity: 0.68 },
 });

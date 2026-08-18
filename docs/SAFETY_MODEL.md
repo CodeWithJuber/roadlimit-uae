@@ -16,6 +16,7 @@ Radar-control values are enforcement metadata and never become a driving target 
 - A person explicitly starts every session and confirms the current posted limit.
 - The confirmed limit and alert preferences are immutable for that session.
 - The app never resumes a prior session after process restart, force-stop, or reboot.
+- Android beta tracking is foreground-only: the app holds a wake lock and ends the session when it leaves the foreground or the screen locks.
 - Stale, inaccurate, missing, negative, or implausible speed input suppresses alerts and clears the displayed speed.
 - A required background notification failure stops the session.
 - A location-task error invalidates the session and attempts to stop native tracking.
@@ -31,6 +32,7 @@ Radar-control values are enforcement metadata and never become a driving target 
 - GPS speed may be unavailable or inaccurate in tunnels, dense urban areas, or poor satellite conditions.
 - The four bundled road references have no segment geometry and cannot support automatic matching.
 - Background execution in Expo Go is not representative; development and signed release builds are required.
+- The Expo SDK 57 Android background foreground-service path is deliberately disabled pending an upstream fix and physical OEM evidence.
 
 ## Safe use
 

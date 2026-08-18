@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme';
+import { colors, radius } from '../theme';
 
 type Props = {
   limitKmh: number | null;
@@ -10,40 +10,59 @@ type Props = {
 
 export const LimitSign = ({ limitKmh, compact = false, accessibilityLabel }: Props) => (
   <View
-    style={[styles.outer, compact && styles.outerCompact]}
+    style={[styles.shell, compact && styles.shellCompact]}
+    accessible
+    accessibilityRole="image"
     accessibilityLabel={accessibilityLabel ?? `Limit value ${limitKmh ?? 'unknown'}`}
   >
-    <View style={[styles.inner, compact && styles.innerCompact]}>
-      <Text style={[styles.value, compact && styles.valueCompact]}>{limitKmh ?? '—'}</Text>
-      <Text style={[styles.unit, compact && styles.unitCompact]}>km/h</Text>
-    </View>
+    <Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.75}
+      style={[styles.value, compact && styles.valueCompact]}
+    >
+      {limitKmh ?? '—'}
+    </Text>
   </View>
 );
 
 const styles = StyleSheet.create({
-  outer: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    backgroundColor: colors.red,
-    padding: 8,
-    shadowColor: colors.red,
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  outerCompact: { width: 66, height: 66, borderRadius: 33, padding: 4 },
-  inner: {
-    flex: 1,
-    borderRadius: 58,
-    backgroundColor: colors.white,
+  shell: {
+    width: 92,
+    height: 80,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.large,
+    borderWidth: 2,
+    borderColor: colors.cyan,
+    backgroundColor: colors.cyanWash,
+    shadowColor: colors.cyan,
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
-  innerCompact: { borderRadius: 29 },
-  value: { color: '#111820', fontSize: 44, fontWeight: '900', letterSpacing: -2 },
-  valueCompact: { fontSize: 23, letterSpacing: -1 },
-  unit: { color: '#4A5563', fontSize: 12, fontWeight: '800', marginTop: -4 },
-  unitCompact: { fontSize: 8, marginTop: -2 },
+  shellCompact: {
+    width: 60,
+    height: 52,
+    borderRadius: radius.small,
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  value: {
+    width: '100%',
+    color: colors.text,
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: '700',
+    letterSpacing: -1.6,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  valueCompact: {
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.8,
+  },
 });

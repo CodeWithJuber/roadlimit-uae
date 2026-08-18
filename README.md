@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/CodeWithJuber/roadlimit-uae/actions/workflows/ci.yml/badge.svg)](https://github.com/CodeWithJuber/roadlimit-uae/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-1FD18A)
+![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-F26430)
 ![Status](https://img.shields.io/badge/status-research%20beta-F59E0B)
 
 Privacy-first, open-source speed awareness for Android and iPhone. Dubai-first research beta; not store-ready.
@@ -27,7 +27,8 @@ Privacy-first, open-source speed awareness for Android and iPhone. Dubai-first r
 - An explicit posted-limit confirmation before every drive session.
 - A manual sign mode that works offline and needs no account, API key, or map.
 - A small parked road-reference catalog; the driver still confirms the physical sign.
-- User-started background sessions, local notifications, haptics, and foreground voice.
+- Android screen-on drive sessions with an active wake lock; iOS background sessions remain separately permission-gated.
+- Local notifications, haptics, foreground voice, and a live visual warning state.
 - Approaching-limit and at-limit alerts with cooldown and hysteresis.
 - No ads, analytics, trip history, coordinate persistence, or route upload.
 
@@ -61,19 +62,23 @@ npx expo run:android
 # or: npx expo run:ios
 ```
 
-Background location is not supported adequately in Expo Go. Test with a development or release build on a physical device.
+Background location is not supported adequately in Expo Go. Test with a development or release build on a physical device. The Android research beta deliberately uses screen-on foreground tracking; keep the app visible during a drive.
 
 ## Platform reality
 
 | Behaviour | Android | iOS |
 |---|---|---|
-| Active-session background tracking | Foreground location service and persistent notification | `Always` location and visible background-location indicator |
-| Screen locked / another app open | Supported subject to OS/OEM controls | Supported subject to iOS controls |
-| Notification permission denied | Falls back to screen-open mode | Falls back to screen-open mode |
+| Active-session tracking | Screen-on only; the app holds a wake lock while active | Foreground, or permission-gated background mode |
+| Screen locked / another app open | Session stops and must be reconfirmed | Supported in background mode subject to iOS controls |
+| Notification permission denied | Screen-on visual, voice, and haptic outputs remain available | Falls back to screen-open mode |
 | After force-stop or reboot | Reopen and restart; never auto-starts | Reopen and restart; never auto-starts |
 | Voice in silent/Focus mode | May be suppressed | May be suppressed; Expo Speech is silent on physical iPhones in silent mode |
 
-The UI marks delayed or unusable GPS as **Signal degraded**, clears current speed, and pauses speed alerts. Background mode requires a local-notification channel; otherwise the app uses clearly labelled screen-open mode.
+The UI marks delayed or unusable GPS as **Signal degraded**, clears current speed, and pauses speed alerts. Android background tracking is disabled in this beta because the Expo SDK 57 foreground-service path has a known accepted lifecycle defect on some devices. This is a reliability boundary, not a hidden limitation; leaving or locking the Android app ends the session. iOS background mode requires `Always` location and local-notification permission, otherwise it falls back to clearly labelled screen-open mode.
+
+## Design and engineering doctrine
+
+The interface uses ForgeKit's deterministic design-review discipline with a RoadLimit-specific premium obsidian/cyan instrument palette. Safety decisions follow the evidence-before-confidence and explicit-unknown-state approach described by [Hikmah Stack](https://github.com/CodeWithJuber/hikmah-stack), while delivery and verification gates follow [WisdomLens](https://github.com/CodeWithJuber/wisdomlens). [ForgeKit](https://github.com/CodeWithJuber/forgekit) and the other projects are development-time references, not runtime React Native dependencies. See [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) for the applied token, accessibility, and trust-state rules.
 
 ## Data: the hard part
 
@@ -113,7 +118,7 @@ flowchart TD
 
 Important modules:
 
-- `src/background/locationTask.ts` — top-level background-task registration.
+- `src/background/locationTask.ts` — top-level iOS background-task registration; Android beta never starts it.
 - `src/services/driveEngine.ts` — session-gated processing and alert delivery.
 - `src/core/alertPolicy.ts` — posted-limit thresholds, cooldown, and hysteresis.
 - `src/core/speed.ts` — stale/poor-fix rejection and speed smoothing.
@@ -134,7 +139,7 @@ npm run doctor
 
 Do not present this beta as a production navigation authority or publish it to an app store until all of these gates have documented evidence:
 
-- locked-screen and background tests on real Pixel, Samsung, Oppo, and iPhone devices, including silent mode, Focus, Bluetooth, battery saver, callback loss, force-stop, reboot, and permission downgrades;
+- Android screen-on tests on real Pixel, Samsung, and Oppo devices, plus locked-screen/background tests on iPhone, including silent mode, Focus, Bluetooth, battery saver, callback loss, force-stop, reboot, and permission downgrades;
 - a fail-visible review of notification delivery, stale GPS behaviour, session shutdown, and platform/OEM limitations;
 - a signed release-build review of generated Android and iOS permissions, background modes, backup settings, and privacy manifests;
 - a public, versioned privacy-policy URL whose statements match the shipped binary and completed Apple/Google privacy disclosures;
