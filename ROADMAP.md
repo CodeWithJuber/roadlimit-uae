@@ -7,7 +7,7 @@ This roadmap is evidence-gated rather than date-gated. A phase is complete only 
 - [x] Android/iOS Expo codebase
 - [x] Explicit per-session posted-limit confirmation
 - [x] Local GPS-speed validation and deterministic alert policy
-- [x] Foreground/background fail-closed lifecycle controls
+- [x] Android screen-on and iOS background fail-closed lifecycle controls
 - [x] Privacy, security, data-licensing, and contribution policies
 - [x] Unit and integration tests plus CI
 - [ ] Complete the physical-device matrix in `docs/DEVICE_TEST_PLAN.md`
@@ -18,7 +18,7 @@ This roadmap is evidence-gated rather than date-gated. A phase is complete only 
 - Signed internal Android and iOS builds
 - Passenger-led field validation against physical signs
 - Accessibility and driver-distraction review
-- OEM-specific background guidance based on measured results
+- OEM-specific screen-on guidance and measured Android background-path evaluation
 - Versioned public privacy policy matching shipped binaries
 
 ## 0.3 — Reviewed offline road data

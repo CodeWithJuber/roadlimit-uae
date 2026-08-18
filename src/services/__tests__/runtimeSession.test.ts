@@ -3,22 +3,20 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   activateRuntimeSession,
   clearRuntimeSession,
-  isRuntimeSessionCurrent,
+  isRuntimeSessionActive,
 } from '../runtimeSession';
 
-describe('runtime session gate', () => {
-  beforeEach(() => clearRuntimeSession());
+describe('process-local drive lease', () => {
+  beforeEach(clearRuntimeSession);
 
-  it('rejects cold-started and old-session callbacks', () => {
-    expect(isRuntimeSessionCurrent('drive-a')).toBe(false);
+  it('authorises only the explicitly activated session', () => {
     activateRuntimeSession('drive-a');
-    expect(isRuntimeSessionCurrent('drive-a')).toBe(true);
-    expect(isRuntimeSessionCurrent('drive-b')).toBe(false);
+
+    expect(isRuntimeSessionActive('drive-a')).toBe(true);
+    expect(isRuntimeSessionActive('drive-b')).toBe(false);
   });
 
-  it('invalidates callbacks immediately on stop', () => {
-    activateRuntimeSession('drive-a');
-    clearRuntimeSession();
-    expect(isRuntimeSessionCurrent('drive-a')).toBe(false);
+  it('fails closed when the runtime lease is absent', () => {
+    expect(isRuntimeSessionActive('drive-a')).toBe(false);
   });
 });

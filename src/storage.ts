@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: DriveSettings = {
   notificationsEnabled: true,
   voiceEnabled: true,
   hapticsEnabled: true,
-  backgroundEnabled: true,
+  backgroundEnabled: false,
 };
 
 export const EMPTY_SNAPSHOT: DriveSnapshot = {

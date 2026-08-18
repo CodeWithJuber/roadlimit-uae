@@ -1,6 +1,6 @@
 # Third-party notices
 
-This file records the direct runtime dependencies declared for RoadLimit UAE 0.1.0 and the icon font used by the research build. It is a starting point, not a complete transitive-dependency or final-binary audit. Regenerate and verify notices from the exact production bundle before distribution.
+This file records the direct runtime dependencies declared for RoadLimit UAE 0.1.1 and the icon font used by the research build. It is a starting point, not a complete transitive-dependency or final-binary audit. Regenerate and verify notices from the exact production bundle before distribution.
 
 ## Direct runtime dependencies
 
@@ -12,6 +12,7 @@ This file records the direct runtime dependencies declared for RoadLimit UAE 0.1
 | `expo-constants` | 57.0.12 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
 | `expo-font` | 57.0.1 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
 | `expo-haptics` | 57.0.1 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
+| `expo-keep-awake` | 57.0.1 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
 | `expo-location` | 57.0.11 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
 | `expo-notifications` | 57.0.12 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |
 | `expo-speech` | 57.0.1 | MIT | Copyright (c) 2015-present 650 Industries, Inc. (aka Expo) |

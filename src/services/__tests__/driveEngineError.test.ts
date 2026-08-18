@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   appendTrace: vi.fn(),
-  clearRuntimeSession: vi.fn(),
   deliverAlert: vi.fn(),
   deliverTrackingStoppedNotice: vi.fn(),
   endDriveSession: vi.fn(),
@@ -39,10 +38,6 @@ vi.mock('../notifications', () => ({
   stopAlertOutputs: mocks.stopAlertOutputs,
 }));
 
-vi.mock('../runtimeSession', () => ({
-  clearRuntimeSession: mocks.clearRuntimeSession,
-}));
-
 import { processLocationError } from '../driveEngine';
 
 const activeSnapshot = {
@@ -77,7 +72,6 @@ describe('background location error handling', () => {
   it('invalidates, stops, notifies, and persists an inactive error', async () => {
     await processLocationError('Provider unavailable.', 'session-a');
 
-    expect(mocks.clearRuntimeSession).toHaveBeenCalledOnce();
     expect(mocks.endDriveSession).toHaveBeenCalledOnce();
     expect(mocks.stopLocationUpdatesAsync).toHaveBeenCalledOnce();
     expect(mocks.deliverTrackingStoppedNotice).toHaveBeenCalledOnce();
